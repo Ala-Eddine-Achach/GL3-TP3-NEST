@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLABLA</title>
+    <style>
+     body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f2f2f2;
+    padding: 20px;
+    text-align: center;
+    font-style: italic;
+    color: #333;
+    font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+#nameInput {
+    padding: 5px;
+    margin-bottom: 10px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+    font-size: 15px;
+}
+#messageInput
+{
+    padding: 5px;
+    margin-bottom: 10px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+    font-size: 18px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+#messages {
+    height: 300px;
+    overflow-y: scroll;
+    padding: 10px;
+    border: 1px solid #0e4a99;
+    border-radius: 5px;
+}
+
+#message-input {
+    text-align: center;
+    text-shadow: #1f1818;
+    width: calc(100% - 80px);
+    padding: 5px;
+    margin-right: 10px;
+    border-radius: 13px;
+    border: 1px solid #1f1818;
+    background-color: #a6dbe7;
+    font-size: 15px;
+    text-align: right;
+    margin-bottom: 10px;
+    padding: 5px;
+    border-radius: 3px;
+    display: inline-block;
+    
+}
+
+#my-message {
+    text-align: center;
+    text-shadow: #1f1818;
+    width: calc(100% - 80px);
+    padding: 5px;
+    margin-right: 10px;
+    border-radius: 13px;
+    border: 1px solid #1f1818;
+    background-color: #9ee5c7;
+    color: rgb(0, 0, 0);
+    text-align: right;
+    margin-bottom: 10px;
+    padding: 5px;
+    border-radius: 3px;
+    display: inline-block;
+    font-size: 15px;
+}
+
+#send-button {
+    padding: 5px 10px;
+    border: none;
+    background-color: #28792b;
+    color: white;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+#send-button:hover {
+    background-color: #45a049;
+}
+
+#typingIndicator {
+    margin-top: 10px;
+    font-style: italic;
+    color: #2e532e; /* dark green */
+}
+#usersCount {
+    margin-top: 10px;
+    font-style: italic;
+    color: #008000; /* dark green */
+}
+
+    </style>
+</head>
+<body>
+    <h1>Hello My friend !</h1>
+
+    <div>
+        <label for="nameInput">Your Name:</label>
+        <input type="text" id="nameInput" placeholder="Enter your name...">
+    </div>
+
+    <div id="usersCount"></div>
+
+    <ul id="messages"></ul>
+
+    <input type="text" id="messageInput" placeholder="Type your message...">
+    <button id="send-button" onclick="sendMessage()">Send </button>
+
+    <div id="typingIndicator"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <script>
+        const socket = io('http://localhost:3000');
+        let senderName = ''; // Variable to store sender's name
+
+        // Update users count
+        socket.on('users', (usersCount) => {
+            document.getElementById('usersCount').innerText = `Users online: ${usersCount}`;
+        });
+
+        // Receive chat messages
+        socket.on('message', (data) => {
+            const { message, sender } = data;
+            const messagesList = document.getElementById('messages');
+            const li = document.createElement('li');
+            li.id = 'my-message';
+            li.innerText = `${sender}: ${message}`;
+            li.classList.add('received');
+            messagesList.appendChild(li);
+        });
+
+        // Receive typing indicator
+        socket.on('typing', ({ name, isTyping }) => {
+            const typingStatus = isTyping ? 'is typing...' : '';
+            console.log('typingStatus', typingStatus);
+            document.getElementById('typingIndicator').innerText = `${name} ${typingStatus}`;
+        });
+
+        // Send chat message
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            const nameInput = document.getElementById('nameInput');
+            senderName = nameInput.value.trim(); // Get sender's name from input
+
+            if (message !== '' && senderName !== '') {
+                const messagesList = document.getElementById('messages');
+                const li = document.createElement('li');
+                //give li an id
+                li.id = 'message-input';
+                li.innerText = `${senderName}: ${message}`; // Include sender's name
+                li.classList.add('sent');
+                messagesList.appendChild(li);
+
+                // Clear typing indicator
+                const typingIndicator = document.getElementById('typingIndicator');
+                if (typingIndicator) {
+                    typingIndicator.innerText = "";
+                }
+                console.log('senderName', senderName);
+                socket.emit('message', { message, sender: senderName }); // Emit sender's name
+                messageInput.value = '';
+            }
+        }
+        let isTyping = false;
+let typingTimer;
+
+document.getElementById('messageInput').addEventListener('input', () => {
+    const nameInput = document.getElementById('nameInput');
+            senderName = nameInput.value.trim(); // Get sender's name from input
+    console.log(senderName)
+    if (!isTyping) {
+        isTyping = true;
+        socket.emit('typing', { name: senderName, isTyping: true });
+
+        // Start a timer to reset typing status after 2 seconds
+        typingTimer = setTimeout(() => {
+            isTyping = false;
+            socket.emit('typing', { name: senderName, isTyping: false });
+        }, 2000);
+    } else {
+        // Reset the timer
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+            isTyping = false;
+            socket.emit('typing', { name: senderName, isTyping: false });
+        }, 2000);
+    }
+});
+
+socket.on('typing', ({ name, isTyping }) => {
+    const typingStatus = isTyping ? 'is typing...' : '';
+    const nameuser=name;
+    console.log('nameuser', nameuser);
+    document.getElementById('typingIndicator').innerText = isTyping ?`${nameuser} ${typingStatus}`:'';
+});
+    </script>
+</body>
+</html>
